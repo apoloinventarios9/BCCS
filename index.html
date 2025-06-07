@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventario de Activos y Accesorios</title>
+  <!-- Librerías externas -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.all.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/read-excel-file@5.x/bundle/read-excel-file.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    /* --- ESTILOS GENERALES --- */
+    body { padding: 15px; background-color: #f8f9fa; min-height: 100vh; font-size: 12px; }
+    #mainContent { display: none; }
+    .container-fluid { max-width: 900px; margin: 0 auto; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; color: #0066cc; padding: 8px; background-color: rgba(255,255,255,0.9); font-size: 0.7rem; border-top: 1px solid #ddd; z-index: 1000; }
+    .compact-card { margin: 10px 0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: box-shadow 0.3s ease; }
+    .compact-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .module-section { display: none; animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .module-section.active { display: block; }
+    .compact-form .form-group { margin-bottom: 0.8rem; }
+    .history-item { padding: 8px; font-size: 0.8rem; border-bottom: 1px solid #ddd; transition: background-color 0.3s ease; }
+    .history-item:hover { background-color: #f8f9fa; }
+    .full-history-item {
+      padding: 8px;
+      font-size: 0.8rem;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      transition: background-color 0.3s ease;
+    }
+    .full-history-item:hover { background-color: #f8f9fa; }
+    .full-history-item > div {
+      flex: 1;
+      min-width: 120px;
+      margin: 2px 0;
+    }
+    #scannerVideo { max-width: 100%; height: auto; }
+    .state-dropdown {
+      margin: 10px 0;
+    }
+    .state-dropdown select {
+      width: 100%;
+      padding: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 12px;
+    }
+    .suggestions {
+      position: absolute;
+      top: 42px;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 0 0 4px 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1050;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .suggestion-item {
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s ease;
+    }
+    .suggestion-item:hover { background-color: #e9f7fe; }
+    .suggestion-item.highlighted {
+      background-color: #d4edff;
+      font-weight: bold;
+    }
+    .swal2-popup {
+      width: auto !important;
+      max-width: 90% !important;
+      margin: 0.5rem !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      font-size: 12px;
+    }
+    .swal2-content {
+      width: 100% !important;
+      max-width: 300px !important;
+    }
+    .swal2-input {
+      width: 100% !important;
+      max-width: 280px !important;
+      margin: 0.5rem auto !important;
+      font-size: 12px;
+    }
+    @media (max-width: 480px) {
+      .swal2-popup {
+        width: 95% !important;
+        font-size: 12px !important;
+      }
+      .swal2-input {
+        font-size: 12px !important;
+        padding: 0.5rem !important;
+      }
+      .full-history-item > div {
+        min-width: 100%;
+      }
+      .history-actions {
+        flex-direction: column;
+        gap: 5px;
+      }
+    }
+    .swal2-input-group {
+      padding: 0 15px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    h4 {
+      font-size: 1.2rem;
+    }
+    .nav-link {
+      font-size: 12px;
+      padding: 8px 12px;
+      transition: background-color 0.3s ease;
+    }
+    .form-control, .form-control-sm {
+      font-size: 12px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .btn {
+      font-size: 12px;
+      transition: all 0.3s ease;
+    }
+    small, .small {
+      font-size: 10px;
+    }
+    .text-muted {
+      font-size: 10px;
+    }
+    .status-container {
+      display: flex;
+      gap: 5px;
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+    .status-box {
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 9.5px;
+      font-weight: bold;
+    }
+    .active-status {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .inactive-status {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .stock-status {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .no-stock-status {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .search-history {
+      margin-bottom: 10px;
+    }
+    /* Estilos para el módulo de configuraciones */
+    .config-option {
+      margin-bottom: 15px;
+    }
+    .config-option label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    /* Estilo para el icono de configuración */
+    .nav-link i.fa-cog {
+      font-size: 1.1rem;
+    }
+    /* Estilos para los botones de acción en historial */
+    .history-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .history-actions .btn {
+      padding: 5px 10px;
+    }
+    /* Loading spinner */
+    .spinner-container {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.1);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+    /* Estilo para código desconocido */
+    .unknown-code {
+      color: #dc3545;
+      font-size: 10px;
+      margin-top: 2px;
+      display: none;
+    }
+    /* Estilo para el botón deshabilitado */
+    .btn-success:disabled {
+      opacity: 0.65;
+    }
+    /* Estilo para el campo de búsqueda con foco */
+    #search:focus {
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    /* Nuevos estilos para el historial */
+    .history-header {
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .history-code {
+      color: #6c757d;
+      font-size: 0.75rem;
+    }
+    .history-name {
+      font-size: 0.8rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Estilo para la advertencia de duplicados */
+    .duplicate-warning {
+      animation: pulse 2s infinite;
+      border-left: 4px solid #ffc107;
+      background-color: #fff8e1;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    .history-item {
+      transition: all 0.3s ease;
+    }
+    .history-item:hover {
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .animated.pulse {
+      animation: pulse 1s infinite;
+    }
+    .swal2-popup .table {
+      width: 100%;
+      font-size: 0.85rem;
+    }
+    .swal2-popup .table th {
+      background-color: #f8f9fa;
+    }
+    .badge {
+      font-weight: 500;
+      padding: 0.35em 0.5em;
+    }
+    .accordion .card {
+      border: none;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .accordion .card-header {
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #ddd;
+    }
+    .accordion .btn-link {
+      text-decoration: none;
+      color: #007bff;
+      font-weight: bold;
+    }
+    .accordion .btn-link:hover {
+      text-decoration: underline;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 20px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #28a745;
+    }
+    input:checked + .slider:before {
+      transform: translateX(14px);
+    }
+    .config-status {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+      vertical-align: middle;
+      margin-left: 2px;
+      letter-spacing: 0.5px;
+      opacity: 0.85;
+    }
+    .config-status-on {
+      background: #e6f4ea;
+      color: #218838;
+      border: 1px solid #b7e4c7;
+    }
+    .config-status-off {
+      background: #fbeee6;
+      color: #b85c2b;
+      border: 1px solid #f5c6cb;
+    }
+
+    /* --- TABLA TEMPORAL Y BOTONES DE ACCIÓN (LIMPIO Y FINAL) --- */
+    #temporaryListContainer {
+      overflow-x: auto;
+    }
+    #temporaryListTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      table-layout: auto;
+    }
+    #temporaryListTable th, #temporaryListTable td {
+      border: 1px solid #dee2e6;
+      vertical-align: middle;
+      text-align: center;
+      padding: 6px 8px;
+      background: #fff;
+      font-size: 12px;
+      /* Solo permite saltos de línea normales */
+      white-space: normal;
+    }
+    #temporaryListTable thead th {
+      background: #e9ecef;
+      color: #333;
+      font-weight: 600;
+    }
+    #temporaryListTable .codigo-col,
+    #temporaryListTable .nombre-col,
+    #temporaryListTable .cant-col {
+      font-size: 11px;
+    }
+    #temporaryListTable .acciones-col {
+      min-width: 60px;
+      width: 70px;
+    }
+    #temporaryListTable .acciones-col .btn {
+      font-size: 13px;
+      padding: 2px 8px;
+      min-width: 32px;
+      margin: 0 2px;
+      line-height: 1.2;
+    }
+    #temporaryListTable .btn-primary {
+      background-color: #007bff;
+      border-color: #007bff;
+      color: #fff;
+    }
+    #temporaryListTable .btn-danger {
+      background-color: #dc3545;
+      border-color: #dc3545;
+      color: #fff;
+    }
+    @media (max-width: 900px) {
+      #temporaryListContainer {
+        overflow-x: auto;
+      }
+      #temporaryListTable th, #temporaryListTable td {
+        font-size: 10px;
+        padding: 4px 4px;
+        min-width: 40px;
+        white-space: normal;
+        word-break: break-word;
+        vertical-align: middle;
+        text-align: center;
+      }
+      #temporaryListTable .nombre-col,
+      #temporaryListTable .codigo-col {
+        max-width: 220px;
+        white-space: normal !important;
+        word-break: break-word;
+        overflow: visible;
+        text-overflow: unset;
+      }
+      #temporaryListTable .acciones-col {
+        min-width: 60px;
+        width: 70px;
+        position: sticky;
+        right: 0;
+        background: #fff;
+        z-index: 2;
+      }
+      #temporaryListTable .acciones-col .btn {
+        display: block;
+        width: 100%;
+        margin: 2px 0;
+        min-width: 32px;
+        font-size: 13px;
+        line-height: 1.2;
+        padding: 2px 8px;
+      }
+      #temporaryListTable .eststock-col .badge {
+        display: block;
+        margin-bottom: 2px;
+        width: 100%;
+      }
+    }
+
+    /* Nuevos estilos específicos para el inventario de activos y accesorios */
+    .serie-col, .imei-col { font-size: 11px; }
+    .tipo-col { font-size: 11px; }
+    .accesorio-row { background-color: #e9f7ef; }
+    .equipo-row { background-color: #e3eafc; }
+    .serie-warning { color: #dc3545; font-size: 10px; }
+  </style>
+</head>
+<body>
+<div id="mainContent">
+  <!-- Loading spinner -->
+  <div id="spinner" class="spinner-container" style="display:none;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="sr-only">Cargando...</span>
+    </div>
+  </div>
+  <!-- Modal para escáner -->
+  <div class="modal fade" id="scannerModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" style="font-size: 14px;">Escanear código</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body text-center">
+          <div id="qr-reader" style="width: 100%;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" style="font-size: 12px;">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="container-fluid">
+    <h4 class="mb-3 text-center">Inventario de Activos y Accesorios</h4>
+    <ul class="nav nav-tabs mb-2">
+      <li class="nav-item">
+        <a class="nav-link active" onclick="showModule('import', event)">
+          <i class="fas fa-file-import mr-1"></i> Importar
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="showModule('conteo', event)">
+          <i class="fas fa-clipboard-list mr-1"></i> Registrar
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="showModule('historial', event)">
+          <i class="fas fa-history mr-1"></i> Historial
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="showModule('configuraciones', event)" title="Configuraciones">
+          <i class="fas fa-cog"></i>
+        </a>
+      </li>
+    </ul>
+    <!-- Importar -->
+    <div id="importModule" class="module-section active">
+      <div class="compact-card card">
+        <div class="card-body p-2">
+          <input type="file" id="excelFile" class="form-control form-control-sm" accept=".xlsx, .xls">
+          <small class="text-muted">
+            Plantilla: Código | Nombre | Tipo (Equipo/Accesorio) | IMEI/SERIE desde | IMEI/SERIE hasta | Estado | Ubicación
+          </small>
+          <div id="importWarnings" class="serie-warning mt-2"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Conteo -->
+    <div id="conteoModule" class="module-section">
+      <div class="compact-card card">
+        <div class="card-body p-2">
+          <form id="countForm" class="compact-form">
+            <div class="row">
+              <div class="col-4 position-relative">
+                <div class="input-group">
+                  <input type="text" id="productCode" class="form-control form-control-sm" placeholder="Código de producto" required>
+                  <div class="input-group-append">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" title="Escanear código" onclick="openScanner('productCode')">
+                      <i class="fas fa-barcode"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-4">
+                <input type="text" id="productName" class="form-control form-control-sm" placeholder="Nombre" readonly>
+              </div>
+              <div class="col-4">
+                <select id="productType" class="form-control form-control-sm" disabled>
+                  <option value="Equipo">Equipo</option>
+                  <option value="Accesorio">Accesorio</option>
+                </select>
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-4 position-relative">
+                <div class="input-group">
+                  <input type="text" id="serieImei" class="form-control form-control-sm" placeholder="IMEI/SERIE (si aplica)">
+                  <div class="input-group-append">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" title="Escanear IMEI/SERIE" onclick="openScanner('serieImei')">
+                      <i class="fas fa-barcode"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-4">
+                <input type="number" id="quantity" class="form-control form-control-sm" placeholder="Cantidad" min="1" value="1">
+              </div>
+              <div class="col-4">
+                <input type="text" id="location" class="form-control form-control-sm" placeholder="Ubicación">
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-12">
+                <textarea id="notes" class="form-control form-control-sm" rows="2" placeholder="Notas"></textarea>
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-6">
+                <button type="button" id="saveBtn" class="btn btn-success btn-sm btn-block" onclick="saveCount()">Guardar</button>
+              </div>
+              <div class="col-6">
+                <button type="button" class="btn btn-secondary btn-sm btn-block" onclick="clearForm()">Cancelar</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="history-list" class="mt-3"></div>
+    </div>
+    <!-- Historial -->
+    <div id="historialModule" class="module-section">
+      <div class="compact-card card">
+        <div class="card-body p-2">
+          <div class="history-actions">
+            <button class="btn btn-outline-info btn-sm" onclick="downloadHistory()">
+              <i class="fas fa-download"></i> Descargar
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="deleteHistory()">
+              <i class="fas fa-trash"></i> Borrar
+            </button>
+          </div>
+          <div class="search-history">
+            <input type="text" id="searchHistory" class="form-control form-control-sm" placeholder="Buscar en historial..." oninput="filterHistory()">
+          </div>
+          <div id="full-history-list"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Configuraciones -->
+    <div id="configuracionesModule" class="module-section">
+      <div class="compact-card card">
+        <div class="card-body p-2">
+          <h5 class="card-title text-center">Configuraciones</h5>
+          <div id="configAccordion" class="accordion">
+            <!-- Opción para iniciar sin plantilla -->
+            <div class="card">
+              <div class="card-header" id="headingNoTemplate">
+                <h6 class="mb-0">
+                  <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse" data-target="#collapseNoTemplate" aria-expanded="true" aria-controls="collapseNoTemplate">
+                    <i class="fas fa-database mr-2"></i> Iniciar inventario sin plantilla
+                  </button>
+                </h6>
+              </div>
+              <div id="collapseNoTemplate" class="collapse show" aria-labelledby="headingNoTemplate" data-parent="#configAccordion">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span>Permitir inventario sin importar plantilla:</span>
+                    <div>
+                      <label class="switch mb-0">
+                        <input type="checkbox" id="toggleNoTemplateSwitch" onchange="toggleNoTemplate()">
+                        <span class="slider round"></span>
+                      </label>
+                      <span id="noTemplateStatusText" class="config-status ml-2"></span>
+                    </div>
+                  </div>
+                  <small class="text-muted">Permite registrar productos manualmente sin importar datos.</small>
+                </div>
+              </div>
+            </div>
+            <!-- Otras configuraciones (puedes agregar más según necesidad) -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Pie de página -->
+  <div class="footer">
+    Desarrollado por: © 2025 Miguel Fajardo - Analista de Inventarios
+  </div>
+</div>
+<script>
+/* --- Variables globales --- */
+let products = [];
+let counts = JSON.parse(localStorage.getItem('inventoryCounts')) || [];
+let allowNoTemplate = localStorage.getItem('allowNoTemplate') === 'true';
+
+/* --- Mostrar/Ocultar módulos --- */
+function showModule(moduleId, event) {
+  document.querySelectorAll('.module-section').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById(moduleId + 'Module').classList.add('active');
+  if (event && event.target) event.target.classList.add('active');
+  if (moduleId === 'historial') loadFullHistory();
+  if (moduleId === 'conteo') setTimeout(() => document.getElementById('productCode').focus(), 100);
+}
+
+/* --- Importar productos con validación de correlatividad --- */
+document.getElementById('excelFile').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  showSpinner();
+  readXlsxFile(file).then((rows) => {
+    let warnings = [];
+    products = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const code = row[0]?.toString().trim() || '';
+      const name = row[1]?.toString().trim() || '';
+      const type = (row[2]?.toString().trim() || 'Equipo').toLowerCase();
+      const serieDesde = row[3]?.toString().trim() || '';
+      const serieHasta = row[4]?.toString().trim() || '';
+      const estado = row[5]?.toString().trim() || '';
+      const ubicacion = row[6]?.toString().trim() || '';
+      if (!code || !name) continue;
+      if (type === 'equipo' && serieDesde && serieHasta) {
+        // Validar correlatividad
+        if (isConsecutive(serieDesde, serieHasta)) {
+          let start = BigInt(serieDesde), end = BigInt(serieHasta);
+          for (let s = start; s <= end; s++) {
+            products.push({ code, name, type: 'Equipo', serie: s.toString(), estado, ubicacion });
+          }
+        } else {
+          warnings.push(`No correlativo: ${code} (${serieDesde} - ${serieHasta})`);
+        }
+      } else if (type === 'equipo' && serieDesde) {
+        products.push({ code, name, type: 'Equipo', serie: serieDesde, estado, ubicacion });
+      } else {
+        // Accesorio
+        products.push({ code, name, type: 'Accesorio', serie: '', estado, ubicacion });
+      }
+    }
+    localStorage.setItem('inventoryProducts', JSON.stringify(products));
+    hideSpinner();
+    document.getElementById('importWarnings').innerHTML = warnings.length ? warnings.join('<br>') : '';
+    Swal.fire('Éxito', `Se importaron ${products.length} registros`, 'success');
+  }).catch(error => {
+    hideSpinner();
+    Swal.fire('Error', 'Error al importar el archivo', 'error');
+  });
+});
+
+/* --- Validar correlatividad de serie/IMEI --- */
+function isConsecutive(from, to) {
+  try {
+    let a = BigInt(from), b = BigInt(to);
+    return b >= a && (b - a) < 10000; // Máximo 10,000 correlativos
+  } catch { return false; }
+}
+
+/* --- Guardar conteo --- */
+function saveCount() {
+  const code = document.getElementById('productCode').value.trim();
+  const name = document.getElementById('productName').value.trim();
+  const type = document.getElementById('productType').value;
+  const serie = document.getElementById('serieImei').value.trim();
+  const quantity = parseInt(document.getElementById('quantity').value) || 1;
+  const location = document.getElementById('location').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+  if (!code || !name) return Swal.fire('Error', 'Complete código y nombre', 'error');
+  if (type === 'Equipo' && !serie) return Swal.fire('Error', 'Ingrese IMEI/SERIE', 'error');
+  if (type === 'Accesorio' && quantity < 1) return Swal.fire('Error', 'Cantidad inválida', 'error');
+  // Validar duplicados
+  if (counts.some(c => c.code === code && c.serie === serie && type === 'Equipo')) {
+    return Swal.fire('Error', 'Ya existe este IMEI/SERIE registrado', 'error');
+  }
+  // Guardar
+  if (type === 'Equipo') {
+    counts.push({ code, name, type, serie, quantity: 1, location, notes, timestamp: new Date().toISOString() });
+  } else {
+    counts.push({ code, name, type, serie: '', quantity, location, notes, timestamp: new Date().toISOString() });
+  }
+  localStorage.setItem('inventoryCounts', JSON.stringify(counts));
+  Swal.fire('Éxito', 'Registro guardado', 'success');
+  clearForm();
+  loadHistory(code, serie);
+}
+
+/* --- Limpiar formulario --- */
+function clearForm() {
+  document.getElementById('productCode').value = '';
+  document.getElementById('productName').value = '';
+  document.getElementById('productType').value = 'Equipo';
+  document.getElementById('serieImei').value = '';
+  document.getElementById('quantity').value = 1;
+  document.getElementById('location').value = '';
+  document.getElementById('notes').value = '';
+}
+
+/* --- Cargar historial --- */
+function loadHistory(code, serie = '') {
+  const historyList = document.getElementById('history-list');
+  historyList.innerHTML = '';
+  const filtered = counts.filter(c => c.code === code && (!serie || c.serie === serie));
+  if (filtered.length === 0) {
+    historyList.innerHTML = '<div class="text-muted text-center">No hay registros previos</div>';
+    return;
+  }
+  filtered.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'history-item mb-2 p-2 border rounded';
+    div.innerHTML = `
+      <div><strong>${c.name}</strong> (${c.code})</div>
+      <div>Tipo: ${c.type} ${c.serie ? '| IMEI/SERIE: ' + c.serie : ''}</div>
+      <div>Cantidad: ${c.quantity} | Ubicación: ${c.location}</div>
+      <div>Notas: ${c.notes || '-'}</div>
+      <div><small>${new Date(c.timestamp).toLocaleString('es-PE')}</small></div>
+    `;
+    historyList.appendChild(div);
+  });
+}
+
+/* --- Cargar historial completo --- */
+function loadFullHistory() {
+  const historyList = document.getElementById('full-history-list');
+  historyList.innerHTML = '';
+  if (counts.length === 0) {
+    historyList.innerHTML = '<p class="text-muted text-center">No hay registros en el historial</p>';
+    return;
+  }
+  counts.slice().reverse().forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'full-history-item';
+    div.innerHTML = `
+      <div><strong>Código:</strong> ${c.code}</div>
+      <div><strong>Nombre:</strong> ${c.name}</div>
+      <div><strong>Tipo:</strong> ${c.type}</div>
+      <div><strong>IMEI/SERIE:</strong> ${c.serie || '-'}</div>
+      <div><strong>Cantidad:</strong> ${c.quantity}</div>
+      <div><strong>Ubicación:</strong> ${c.location}</div>
+      <div><strong>Fecha:</strong> ${new Date(c.timestamp).toLocaleString('es-PE')}</div>
+    `;
+    historyList.appendChild(div);
+  });
+}
+
+/* --- Filtrar historial --- */
+function filterHistory() {
+  const query = document.getElementById('searchHistory').value.trim().toLowerCase();
+  document.querySelectorAll('.full-history-item').forEach(item => {
+    item.style.display = item.textContent.toLowerCase().includes(query) ? 'flex' : 'none';
+  });
+}
+
+/* --- Descargar historial --- */
+function downloadHistory() {
+  if (counts.length === 0) return Swal.fire('Advertencia', 'No hay registros para descargar', 'warning');
+  const worksheetData = counts.map(c => ({
+    'Código': c.code,
+    'Nombre': c.name,
+    'Tipo': c.type,
+    'IMEI/SERIE': c.serie,
+    'Cantidad': c.quantity,
+    'Ubicación': c.location,
+    'Notas': c.notes || '',
+    'Fecha': new Date(c.timestamp).toLocaleString('es-PE')
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Historial');
+  XLSX.writeFile(workbook, `Inventario_Activos_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+/* --- Borrar historial --- */
+function deleteHistory() {
+  Swal.fire({
+    title: '¿Borrar todo el historial?',
+    text: 'Esta acción no se puede deshacer.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, borrar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      counts = [];
+      localStorage.removeItem('inventoryCounts');
+      loadFullHistory();
+      Swal.fire('Éxito', 'Historial borrado', 'success');
+    }
+  });
+}
+
+/* --- Configuración: permitir inventario sin plantilla --- */
+function toggleNoTemplate() {
+  allowNoTemplate = !allowNoTemplate;
+  localStorage.setItem('allowNoTemplate', allowNoTemplate);
+  updateNoTemplateUI();
+}
+function updateNoTemplateUI() {
+  document.getElementById('toggleNoTemplateSwitch').checked = allowNoTemplate;
+  document.getElementById('noTemplateStatusText').textContent = allowNoTemplate ? 'Permitido' : 'No permitido';
+  document.getElementById('noTemplateStatusText').className = allowNoTemplate ? 'config-status config-status-on' : 'config-status config-status-off';
+  // Si está permitido, habilita campos manuales
+  document.getElementById('productCode').readOnly = !allowNoTemplate && products.length > 0;
+  document.getElementById('productName').readOnly = !allowNoTemplate && products.length > 0;
+  document.getElementById('productType').disabled = !allowNoTemplate && products.length > 0;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  updateNoTemplateUI();
+  loadFullHistory();
+  document.getElementById('mainContent').style.display = 'block'; // <-- Agrega esto
+});
+
+/* --- Spinner --- */
+function showSpinner() { document.getElementById('spinner').style.display = 'flex'; }
+function hideSpinner() { document.getElementById('spinner').style.display = 'none'; }
+
+/* --- Autocompletar producto por código --- */
+document.getElementById('productCode').addEventListener('blur', function() {
+  const code = this.value.trim();
+  if (!code) return;
+  const prod = products.find(p => p.code === code);
+  if (prod) {
+    document.getElementById('productName').value = prod.name;
+    document.getElementById('productType').value = prod.type;
+  } else if (!allowNoTemplate) {
+    document.getElementById('productName').value = '';
+    Swal.fire('Error', 'Producto no encontrado en plantilla', 'error');
+  }
+});
+
+let currentScanTarget = null;
+
+function openScanner(targetInputId) {
+  currentScanTarget = targetInputId;
+  $('#scannerModal').modal('show');
+  setTimeout(() => {
+    if (window.html5QrCodeScanner) {
+      window.html5QrCodeScanner.clear();
+    }
+    // Opciones avanzadas para la cámara
+    const videoConstraints = {
+      facingMode: { ideal: "environment" },
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      // Opciones avanzadas para zoom y enfoque automático
+      advanced: [
+        { focusMode: "continuous" }, // Enfoque automático continuo
+        { zoom: 2 } // Zoom inicial (ajusta según necesidad)
+      ]
+    };
+    window.html5QrCodeScanner = new Html5Qrcode("qr-reader");
+    window.html5QrCodeScanner.start(
+      videoConstraints,
+      { fps: 15, qrbox: 250 },
+      (decodedText) => {
+        document.getElementById(currentScanTarget).value = decodedText;
+        $('#scannerModal').modal('hide');
+        window.html5QrCodeScanner.stop();
+      },
+      (errorMessage) => { /* Ignorar errores de escaneo */ }
+    ).catch(err => {
+      Swal.fire('Error', 'No se pudo acceder a la cámara o no es compatible.', 'error');
+    });
+  }, 400);
+}
+
+$('#scannerModal').on('hidden.bs.modal', function () {
+  if (window.html5QrCodeScanner) {
+    window.html5QrCodeScanner.stop().catch(() => {});
+    window.html5QrCodeScanner.clear();
+  }
+});
+</script>
+</body>
+</html>
