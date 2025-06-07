@@ -888,30 +888,30 @@ document.getElementById('productCode').addEventListener('blur', function() {
   }
 });
 
+let html5QrCodeInstance = null;
 let currentScanTarget = null;
 let currentTrack = null;
 
 function openScanner(targetInputId) {
   currentScanTarget = targetInputId;
   $('#scannerModal').modal('show');
-  setTimeout(() => {
-    if (window.html5QrCodeScanner) {
-      window.html5QrCodeScanner.clear();
+
+  $('#scannerModal').off('shown.bs.modal').on('shown.bs.modal', function () {
+    // Limpiar instancia previa si existe
+    if (html5QrCodeInstance) {
+      html5QrCodeInstance.clear().catch(()=>{});
     }
     document.getElementById('zoom-controls').style.display = 'none';
-    window.html5QrCodeScanner = new Html5Qrcode("qr-reader");
-    const videoConstraints = {
-      facingMode: { ideal: "environment" },
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    };
-    window.html5QrCodeScanner.start(
-      videoConstraints,
-      { fps: 15, qrbox: 250 },
-      (decodedText) => {
+
+    html5QrCodeInstance = new Html5Qrcode("qr-reader");
+    const config = { fps: 10, qrbox: 250 };
+    html5QrCodeInstance.start(
+      { facingMode: "environment" },
+      config,
+      async (decodedText) => {
         document.getElementById(currentScanTarget).value = decodedText;
+        await html5QrCodeInstance.stop();
         $('#scannerModal').modal('hide');
-        window.html5QrCodeScanner.stop();
         if (currentTrack) {
           try { currentTrack.stop(); } catch(e){}
           currentTrack = null;
@@ -944,7 +944,6 @@ function openScanner(targetInputId) {
           }
         }
       } catch (e) {
-        // Si no es compatible, simplemente no muestra el slider
         document.getElementById('zoom-controls').style.display = 'none';
       }
     }).catch(err => {
@@ -954,13 +953,13 @@ function openScanner(targetInputId) {
         'error'
       );
     });
-  }, 400);
+  });
 }
 
-$('#scannerModal').on('hidden.bs.modal', function () {
-  if (window.html5QrCodeScanner) {
-    window.html5QrCodeScanner.stop().catch(() => {});
-    window.html5QrCodeScanner.clear();
+$('#scannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
+  if (html5QrCodeInstance) {
+    html5QrCodeInstance.stop().catch(() => {});
+    html5QrCodeInstance.clear().catch(() => {});
   }
   if (currentTrack) {
     try { currentTrack.stop(); } catch(e){}
