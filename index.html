@@ -898,14 +898,13 @@ function openScanner(targetInputId) {
   $('#scannerModal').modal('show');
 
   $('#scannerModal').off('shown.bs.modal').on('shown.bs.modal', function () {
-    // Limpiar instancia previa si existe
+    // Solo limpiar instancia previa, NO limpiar el área qr-reader aquí
     if (html5QrCodeInstance) {
       html5QrCodeInstance.stop().catch(()=>{});
       html5QrCodeInstance.clear().catch(()=>{});
       html5QrCodeInstance = null;
     }
     document.getElementById('zoom-controls').style.display = 'none';
-    document.getElementById('qr-reader').innerHTML = ""; // Limpia el área del lector
 
     html5QrCodeInstance = new Html5Qrcode("qr-reader");
     const config = { fps: 10, qrbox: 250 };
@@ -973,7 +972,7 @@ $('#scannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
     currentTrack = null;
   }
   document.getElementById('zoom-controls').style.display = 'none';
-  document.getElementById('qr-reader').innerHTML = ""; // Limpia el área del lector
+  document.getElementById('qr-reader').innerHTML = ""; // Limpia el área del lector SOLO al cerrar
 });
 </script>
 </body>
