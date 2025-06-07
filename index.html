@@ -913,38 +913,44 @@ function openScanner(targetInputId) {
         $('#scannerModal').modal('hide');
         window.html5QrCodeScanner.stop();
         if (currentTrack) {
-          currentTrack.stop();
+          try { currentTrack.stop(); } catch(e){}
           currentTrack = null;
         }
       },
       (errorMessage) => { /* Ignorar errores de escaneo */ }
     ).then(() => {
-      // Obtener el stream de video y el track para zoom manual
-      const videoElem = document.querySelector('#qr-reader video');
-      if (videoElem && videoElem.srcObject) {
-        const [track] = videoElem.srcObject.getVideoTracks();
-        currentTrack = track;
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-        if (capabilities.zoom && capabilities.zoom.max > capabilities.zoom.min) {
-          // Mostrar slider de zoom
-          const zoomRange = document.getElementById('zoomRange');
-          zoomRange.min = capabilities.zoom.min;
-          zoomRange.max = capabilities.zoom.max;
-          zoomRange.step = capabilities.zoom.step || 0.1;
-          zoomRange.value = track.getSettings().zoom || 1;
-          document.getElementById('zoomValue').textContent = zoomRange.value + "x";
-          document.getElementById('zoom-controls').style.display = '';
-          zoomRange.oninput = function() {
-            const val = Number(this.value);
-            track.applyConstraints({ advanced: [{ zoom: val }] });
-            document.getElementById('zoomValue').textContent = val + "x";
-          };
+      // Intentar mostrar el slider de zoom solo si es compatible
+      try {
+        const videoElem = document.querySelector('#qr-reader video');
+        if (videoElem && videoElem.srcObject) {
+          const [track] = videoElem.srcObject.getVideoTracks();
+          currentTrack = track;
+          if (typeof track.getCapabilities === "function") {
+            const capabilities = track.getCapabilities();
+            if (capabilities.zoom && capabilities.zoom.max > capabilities.zoom.min) {
+              const zoomRange = document.getElementById('zoomRange');
+              zoomRange.min = capabilities.zoom.min;
+              zoomRange.max = capabilities.zoom.max;
+              zoomRange.step = capabilities.zoom.step || 0.1;
+              zoomRange.value = track.getSettings().zoom || capabilities.zoom.min;
+              document.getElementById('zoomValue').textContent = zoomRange.value + "x";
+              document.getElementById('zoom-controls').style.display = '';
+              zoomRange.oninput = function() {
+                const val = Number(this.value);
+                track.applyConstraints({ advanced: [{ zoom: val }] }).catch(()=>{});
+                document.getElementById('zoomValue').textContent = val + "x";
+              };
+            }
+          }
         }
+      } catch (e) {
+        // Si no es compatible, simplemente no muestra el slider
+        document.getElementById('zoom-controls').style.display = 'none';
       }
     }).catch(err => {
       Swal.fire(
         'Error',
-        'No se pudo acceder a la cámara. Verifica los permisos del navegador y que ningún otro programa esté usando la cámara.',
+        'No se pudo acceder a la cámara. Verifica los permisos del navegador, que estés en HTTPS y que ningún otro programa esté usando la cámara.',
         'error'
       );
     });
@@ -956,9 +962,8 @@ $('#scannerModal').on('hidden.bs.modal', function () {
     window.html5QrCodeScanner.stop().catch(() => {});
     window.html5QrCodeScanner.clear();
   }
-  // Detener el track de video si existe
   if (currentTrack) {
-    currentTrack.stop();
+    try { currentTrack.stop(); } catch(e){}
     currentTrack = null;
   }
   document.getElementById('zoom-controls').style.display = 'none';
