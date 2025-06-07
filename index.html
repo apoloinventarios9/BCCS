@@ -867,7 +867,7 @@ function updateNoTemplateUI() {
 document.addEventListener('DOMContentLoaded', () => {
   updateNoTemplateUI();
   loadFullHistory();
-  document.getElementById('mainContent').style.display = 'block'; // <-- Agrega esto
+  document.getElementById('mainContent').style.display = 'block';
 });
 
 /* --- Spinner --- */
@@ -888,6 +888,7 @@ document.getElementById('productCode').addEventListener('blur', function() {
   }
 });
 
+/* --- Escaneo de códigos con cámara (mejorado) --- */
 let html5QrCodeInstance = null;
 let currentScanTarget = null;
 let currentTrack = null;
@@ -899,9 +900,12 @@ function openScanner(targetInputId) {
   $('#scannerModal').off('shown.bs.modal').on('shown.bs.modal', function () {
     // Limpiar instancia previa si existe
     if (html5QrCodeInstance) {
+      html5QrCodeInstance.stop().catch(()=>{});
       html5QrCodeInstance.clear().catch(()=>{});
+      html5QrCodeInstance = null;
     }
     document.getElementById('zoom-controls').style.display = 'none';
+    document.getElementById('qr-reader').innerHTML = ""; // Limpia el área del lector
 
     html5QrCodeInstance = new Html5Qrcode("qr-reader");
     const config = { fps: 10, qrbox: 250 };
@@ -911,6 +915,8 @@ function openScanner(targetInputId) {
       async (decodedText) => {
         document.getElementById(currentScanTarget).value = decodedText;
         await html5QrCodeInstance.stop();
+        await html5QrCodeInstance.clear();
+        html5QrCodeInstance = null;
         $('#scannerModal').modal('hide');
         if (currentTrack) {
           try { currentTrack.stop(); } catch(e){}
@@ -960,12 +966,14 @@ $('#scannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
   if (html5QrCodeInstance) {
     html5QrCodeInstance.stop().catch(() => {});
     html5QrCodeInstance.clear().catch(() => {});
+    html5QrCodeInstance = null;
   }
   if (currentTrack) {
     try { currentTrack.stop(); } catch(e){}
     currentTrack = null;
   }
   document.getElementById('zoom-controls').style.display = 'none';
+  document.getElementById('qr-reader').innerHTML = ""; // Limpia el área del lector
 });
 </script>
 </body>
