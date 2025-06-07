@@ -893,75 +893,78 @@ let html5QrCodeInstance = null;
 let currentScanTarget = null;
 let currentTrack = null;
 
+// Evento para abrir el escáner
 function openScanner(targetInputId) {
   currentScanTarget = targetInputId;
   $('#scannerModal').modal('show');
-
-  $('#scannerModal').off('shown.bs.modal').on('shown.bs.modal', function () {
-    // Solo limpiar instancia previa, NO limpiar el área qr-reader aquí
-    if (html5QrCodeInstance) {
-      html5QrCodeInstance.stop().catch(()=>{});
-      html5QrCodeInstance.clear().catch(()=>{});
-      html5QrCodeInstance = null;
-    }
-    document.getElementById('zoom-controls').style.display = 'none';
-
-    html5QrCodeInstance = new Html5Qrcode("qr-reader");
-    const config = { fps: 10, qrbox: 250 };
-    html5QrCodeInstance.start(
-      { facingMode: "environment" },
-      config,
-      async (decodedText) => {
-        document.getElementById(currentScanTarget).value = decodedText;
-        await html5QrCodeInstance.stop();
-        await html5QrCodeInstance.clear();
-        html5QrCodeInstance = null;
-        $('#scannerModal').modal('hide');
-        if (currentTrack) {
-          try { currentTrack.stop(); } catch(e){}
-          currentTrack = null;
-        }
-      },
-      (errorMessage) => { /* Ignorar errores de escaneo */ }
-    ).then(() => {
-      // Intentar mostrar el slider de zoom solo si es compatible
-      try {
-        const videoElem = document.querySelector('#qr-reader video');
-        if (videoElem && videoElem.srcObject) {
-          const [track] = videoElem.srcObject.getVideoTracks();
-          currentTrack = track;
-          if (typeof track.getCapabilities === "function") {
-            const capabilities = track.getCapabilities();
-            if (capabilities.zoom && capabilities.zoom.max > capabilities.zoom.min) {
-              const zoomRange = document.getElementById('zoomRange');
-              zoomRange.min = capabilities.zoom.min;
-              zoomRange.max = capabilities.zoom.max;
-              zoomRange.step = capabilities.zoom.step || 0.1;
-              zoomRange.value = track.getSettings().zoom || capabilities.zoom.min;
-              document.getElementById('zoomValue').textContent = zoomRange.value + "x";
-              document.getElementById('zoom-controls').style.display = '';
-              zoomRange.oninput = function() {
-                const val = Number(this.value);
-                track.applyConstraints({ advanced: [{ zoom: val }] }).catch(()=>{});
-                document.getElementById('zoomValue').textContent = val + "x";
-              };
-            }
-          }
-        }
-      } catch (e) {
-        document.getElementById('zoom-controls').style.display = 'none';
-      }
-    }).catch(err => {
-      Swal.fire(
-        'Error',
-        'No se pudo acceder a la cámara. Verifica los permisos del navegador, que estés en HTTPS y que ningún otro programa esté usando la cámara.',
-        'error'
-      );
-    });
-  });
 }
 
-$('#scannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
+// Inicializa el escáner cada vez que se va a mostrar el modal
+$('#scannerModal').on('show.bs.modal', function () {
+  // Limpia el área y destruye instancia previa
+  document.getElementById('qr-reader').innerHTML = "";
+  document.getElementById('zoom-controls').style.display = 'none';
+  if (html5QrCodeInstance) {
+    html5QrCodeInstance.stop().catch(()=>{});
+    html5QrCodeInstance.clear().catch(()=>{});
+    html5QrCodeInstance = null;
+  }
+  html5QrCodeInstance = new Html5Qrcode("qr-reader");
+  const config = { fps: 10, qrbox: 250 };
+  html5QrCodeInstance.start(
+    { facingMode: "environment" },
+    config,
+    async (decodedText) => {
+      document.getElementById(currentScanTarget).value = decodedText;
+      await html5QrCodeInstance.stop();
+      await html5QrCodeInstance.clear();
+      html5QrCodeInstance = null;
+      $('#scannerModal').modal('hide');
+      if (currentTrack) {
+        try { currentTrack.stop(); } catch(e){}
+        currentTrack = null;
+      }
+    },
+    (errorMessage) => { /* Ignorar errores de escaneo */ }
+  ).then(() => {
+    // Intentar mostrar el slider de zoom solo si es compatible
+    try {
+      const videoElem = document.querySelector('#qr-reader video');
+      if (videoElem && videoElem.srcObject) {
+        const [track] = videoElem.srcObject.getVideoTracks();
+        currentTrack = track;
+        if (typeof track.getCapabilities === "function") {
+          const capabilities = track.getCapabilities();
+          if (capabilities.zoom && capabilities.zoom.max > capabilities.zoom.min) {
+            const zoomRange = document.getElementById('zoomRange');
+            zoomRange.min = capabilities.zoom.min;
+            zoomRange.max = capabilities.zoom.max;
+            zoomRange.step = capabilities.zoom.step || 0.1;
+            zoomRange.value = track.getSettings().zoom || capabilities.zoom.min;
+            document.getElementById('zoomValue').textContent = zoomRange.value + "x";
+            document.getElementById('zoom-controls').style.display = '';
+            zoomRange.oninput = function() {
+              const val = Number(this.value);
+              track.applyConstraints({ advanced: [{ zoom: val }] }).catch(()=>{});
+              document.getElementById('zoomValue').textContent = val + "x";
+            };
+          }
+        }
+      }
+    } catch (e) {
+      document.getElementById('zoom-controls').style.display = 'none';
+    }
+  }).catch(err => {
+    Swal.fire(
+      'Error',
+      'No se pudo acceder a la cámara. Verifica los permisos del navegador, que estés en HTTPS y que ningún otro programa esté usando la cámara.',
+      'error'
+    );
+  });
+});
+
+// Limpia todo al cerrar el modal
+$('#scannerModal').on('hidden.bs.modal', function () {
   if (html5QrCodeInstance) {
     html5QrCodeInstance.stop().catch(() => {});
     html5QrCodeInstance.clear().catch(() => {});
@@ -972,7 +975,7 @@ $('#scannerModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
     currentTrack = null;
   }
   document.getElementById('zoom-controls').style.display = 'none';
-  document.getElementById('qr-reader').innerHTML = ""; // Limpia el área del lector SOLO al cerrar
+  document.getElementById('qr-reader').innerHTML = "";
 });
 </script>
 </body>
