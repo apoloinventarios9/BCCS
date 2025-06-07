@@ -900,17 +900,10 @@ function openScanner(targetInputId) {
 
 // Inicializa el escáner cada vez que se abre el modal
 $('#scannerModal').on('show.bs.modal', function () {
-  // Limpia el área del lector y destruye cualquier instancia previa
   document.getElementById('qr-reader').innerHTML = "";
   document.getElementById('zoom-controls').style.display = 'none';
 
-  if (html5QrCodeInstance) {
-    html5QrCodeInstance.stop().catch(() => {});
-    html5QrCodeInstance.clear().catch(() => {});
-    html5QrCodeInstance = null;
-  }
-
-  // Crear una nueva instancia del escáner
+  // Siempre crea una nueva instancia
   html5QrCodeInstance = new Html5Qrcode("qr-reader");
   const config = { fps: 10, qrbox: 250 };
 
@@ -918,20 +911,19 @@ $('#scannerModal').on('show.bs.modal', function () {
     { facingMode: "environment" },
     config,
     (decodedText) => {
-      // Asigna el texto escaneado al campo correspondiente
       document.getElementById(currentScanTarget).value = decodedText;
-
       // Detén el escáner y cierra el modal
-      html5QrCodeInstance.stop().catch(() => {});
-      html5QrCodeInstance.clear().catch(() => {});
-      html5QrCodeInstance = null;
-      $('#scannerModal').modal('hide');
+      html5QrCodeInstance.stop()
+        .then(() => html5QrCodeInstance.clear())
+        .catch(() => {}) // Ignora errores si ya está detenido
+        .finally(() => {
+          html5QrCodeInstance = null;
+          $('#scannerModal').modal('hide');
+        });
     },
-    (errorMessage) => {
-      // Ignorar errores de escaneo
-    }
+    (errorMessage) => { /* Ignorar errores de escaneo */ }
   ).then(() => {
-    // Intentar habilitar el control de zoom si es compatible
+    // Control de zoom
     try {
       const videoElem = document.querySelector('#qr-reader video');
       if (videoElem && videoElem.srcObject) {
@@ -969,12 +961,18 @@ $('#scannerModal').on('show.bs.modal', function () {
 // Limpia todo al cerrar el modal
 $('#scannerModal').on('hidden.bs.modal', function () {
   if (html5QrCodeInstance) {
-    html5QrCodeInstance.stop().catch(() => {});
-    html5QrCodeInstance.clear().catch(() => {});
-    html5QrCodeInstance = null;
+    html5QrCodeInstance.stop()
+      .then(() => html5QrCodeInstance.clear())
+      .catch(() => {}) // Ignora errores si ya está detenido
+      .finally(() => {
+        html5QrCodeInstance = null;
+        document.getElementById('qr-reader').innerHTML = "";
+        document.getElementById('zoom-controls').style.display = 'none';
+      });
+  } else {
+    document.getElementById('qr-reader').innerHTML = "";
+    document.getElementById('zoom-controls').style.display = 'none';
   }
-  document.getElementById('qr-reader').innerHTML = "";
-  document.getElementById('zoom-controls').style.display = 'none';
 });
 </script>
 </body>
